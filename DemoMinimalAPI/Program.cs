@@ -1,5 +1,6 @@
 using DemoMinimalAPI.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection.Metadata.Ecma335;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +14,7 @@ builder.Services.AddDbContext<MinimalContextDb>(options =>
 
 var app = builder.Build();
 
+// Start configuration request - down here
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -21,5 +23,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Mapping the Get Verb to fetch a list of providers 
+app.MapGet("/provider", async (
+    MinimalContextDb context) => 
+    await context.Providers.ToListAsync())
+    .WithName("GetProvider")
+    .WithTags("Provider");
 
 app.Run();

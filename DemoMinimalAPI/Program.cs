@@ -1,6 +1,7 @@
 using DemoMinimalAPI.Data;
 using DemoMinimalAPI.Models;
 using Microsoft.EntityFrameworkCore;
+using MiniValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,9 +41,31 @@ app.MapGet("/provider/{id}", async (
         is Provider provider 
             ? Results.Ok(provider)
             : Results.NotFound())
-    .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API
-    .Produces(StatusCodes.Status404NotFound)     //Add especification the documentation to API
+    .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API (success)
+    .Produces(StatusCodes.Status404NotFound)     //Add especification the documentation to API (error)
     .WithName("GetProviderById")
     .WithTags("Provider");
+
+// Mapping the Post Verb to add a provider to DbContext
+app.MapPost("/provider", async (
+    MinimalContextDb context, 
+    Provider provider) =>
+{
+    if(!MiniValidator.TryValidate(provider, out var errors))
+        return Results.ValidationProblem(errors);
+
+    context.Providers.Add(provider);
+    var result = await context.SaveChangesAsync();
+
+    return result > 0
+        //? Results.Created($"/provider/{provider.Id}", provider) another way to do the endpoint below
+        ? Results.CreatedAtRoute("GetProviderById", new { id = provider.Id}, provider)
+        : Results.BadRequest("Houve um problema ao salvar o registro");
+
+}).ProducesValidationProblem()
+.Produces<Provider>(StatusCodes.Status201Created) //Add especification the documentation to API (success)
+.Produces(StatusCodes.Status400BadRequest)        //Add especification the documentation to API (error)
+.WithName("PostProvider")
+.WithTags("Provider");
 
 app.Run();

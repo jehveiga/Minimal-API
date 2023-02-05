@@ -63,6 +63,10 @@
               "target": "Package",
               "version": "[1.17.0, )"
             },
+            "MiniValidation": {
+              "target": "Package",
+              "version": "[0.7.2, )"
+            },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.2.3, )"

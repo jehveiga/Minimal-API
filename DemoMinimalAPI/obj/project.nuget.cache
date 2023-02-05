@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "WnT4uJEEr6VQLR8164cefclyAWlYmcyGWxhyls8yCv1DZnB8OcSNqvF3+emTJ3BIH9zF3S/+MR1Im3ij94cxxQ==",
+  "dgSpecHash": "5WJvvxR4aa8w4zC8wx9JUEWSESDqbuZmJ4R+AqTGQrs9PPny1r0cqaWK0hzZGBi97h4IFlz+9G+EPxegm4+0PA==",
   "success": true,
   "projectFilePath": "C:\\Users\\Jeh\\source\\repos\\Minimal_API\\DemoMinimalAPI\\DemoMinimalAPI\\DemoMinimalAPI.csproj",
   "expectedPackageFiles": [
@@ -36,6 +36,7 @@
     "C:\\Users\\Jeh\\.nuget\\packages\\microsoft.visualstudio.azure.containers.tools.targets\\1.17.0\\microsoft.visualstudio.azure.containers.tools.targets.1.17.0.nupkg.sha512",
     "C:\\Users\\Jeh\\.nuget\\packages\\microsoft.win32.registry\\4.7.0\\microsoft.win32.registry.4.7.0.nupkg.sha512",
     "C:\\Users\\Jeh\\.nuget\\packages\\microsoft.win32.systemevents\\4.7.0\\microsoft.win32.systemevents.4.7.0.nupkg.sha512",
+    "C:\\Users\\Jeh\\.nuget\\packages\\minivalidation\\0.7.2\\minivalidation.0.7.2.nupkg.sha512",
     "C:\\Users\\Jeh\\.nuget\\packages\\swashbuckle.aspnetcore\\6.2.3\\swashbuckle.aspnetcore.6.2.3.nupkg.sha512",
     "C:\\Users\\Jeh\\.nuget\\packages\\swashbuckle.aspnetcore.swagger\\6.2.3\\swashbuckle.aspnetcore.swagger.6.2.3.nupkg.sha512",
     "C:\\Users\\Jeh\\.nuget\\packages\\swashbuckle.aspnetcore.swaggergen\\6.2.3\\swashbuckle.aspnetcore.swaggergen.6.2.3.nupkg.sha512",

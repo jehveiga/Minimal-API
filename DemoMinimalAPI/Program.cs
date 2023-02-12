@@ -48,7 +48,6 @@ app.UseAuthConfiguration();
 
 app.UseHttpsRedirection();
 
-app.Run();
 
 #endregion
 
@@ -92,7 +91,42 @@ app.MapPost("/registerUser", async (
     .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API (success)
     .Produces(StatusCodes.Status400BadRequest)        //Add especification the documentation to API (error)
     .WithName("RegisterUser")
+    .WithTags("User");
+
+app.MapPost("/login", async (
+    SignInManager<IdentityUser> signInManager,
+    UserManager<IdentityUser> userManager,
+    IOptions<AppJwtSettings> appJwtSettings,
+    LoginUser loginUser) =>
+{
+    if (loginUser is null) return Results.BadRequest("User not informat");
+
+    if (!MiniValidator.TryValidate(loginUser, out var errors))
+        return Results.ValidationProblem(errors);
+
+    var result = await signInManager.PasswordSignInAsync(loginUser.Email, loginUser.Password, false, true);
+
+    if (result.IsLockedOut) return Results.BadRequest("User Blocked");
+
+    if (!result.Succeeded) return Results.BadRequest("User or Password unvalid");
+
+    var jwt = new JwtBuilder()
+                .WithUserManager(userManager)
+                .WithJwtSettings(appJwtSettings.Value)
+                .WithEmail(loginUser.Email)
+                .WithJwtClaims()
+                .WithUserClaims()
+                .WithUserRoles()
+                .BuildUserResponse();
+
+    return Results.Ok(jwt);
+})
+    .ProducesValidationProblem()
+    .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API (success)
+    .Produces(StatusCodes.Status400BadRequest)        //Add especification the documentation to API (error)
+    .WithName("LoginUser")
     .WithTags("User"); ;
+
 
 // Definition first the rote -> mode Async -> parameters -> action
 // Mapping the Get Verb to fetch a list of providers 
@@ -189,3 +223,4 @@ app.MapDelete("/provider/{id}", async (
 
 #endregion
 
+app.Run();

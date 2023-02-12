@@ -60,12 +60,35 @@ app.MapPost("/provider", async (
     return result > 0
         //? Results.Created($"/provider/{provider.Id}", provider) another way to do the endpoint below
         ? Results.CreatedAtRoute("GetProviderById", new { id = provider.Id}, provider)
-        : Results.BadRequest("Houve um problema ao salvar o registro");
+        : Results.BadRequest("There was a problem, to save the register");
 
 }).ProducesValidationProblem()
 .Produces<Provider>(StatusCodes.Status201Created) //Add especification the documentation to API (success)
 .Produces(StatusCodes.Status400BadRequest)        //Add especification the documentation to API (error)
 .WithName("PostProvider")
 .WithTags("Provider");
+
+app.MapPut("/provider/{id}", async(
+    Guid id,
+    MinimalContextDb context,
+    Provider provider) => 
+{
+    var providerBase = await context.Providers.FindAsync(id);
+    if(providerBase is null) return Results.NotFound();
+
+    if(!MiniValidator.TryValidate(provider, out var errors))
+        return Results.ValidationProblem(errors);
+
+    context.Providers.Update(provider);
+    var result = await context.SaveChangesAsync();
+
+    return result > 0
+        ? Results.NoContent() //Return a code 204
+        : Results.BadRequest("There was a problem, to save the register");
+}).ProducesValidationProblem()
+    .Produces(StatusCodes.Status204NoContent)
+    .Produces(StatusCodes.Status400BadRequest)
+    .WithName("PutFornecedor")
+    .WithName("Provider");
 
 app.Run();

@@ -1,7 +1,9 @@
 using DemoMinimalAPI.Data;
 using DemoMinimalAPI.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MiniValidation;
+using NetDevPack.Identity.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,14 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<MinimalContextDb>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddIdentityEntityFrameworkContextConfiguration(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+    b => b.MigrationsAssembly("DemoMinimalAPI")));
+
+builder.Services.AddIdentityConfiguration();
+
+builder.Services.AddJwtConfiguration(builder.Configuration, "AppJwtSettings");
+
 var app = builder.Build();
 
 // Start configuration request - down here
@@ -22,6 +32,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseAuthConfiguration();
 
 app.UseHttpsRedirection();
 

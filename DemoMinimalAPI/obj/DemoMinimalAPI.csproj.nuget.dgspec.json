@@ -67,6 +67,10 @@
               "target": "Package",
               "version": "[0.7.2, )"
             },
+            "NetDevPack.Identity": {
+              "target": "Package",
+              "version": "[7.0.1, )"
+            },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.2.3, )"

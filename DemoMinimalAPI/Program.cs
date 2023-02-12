@@ -1,11 +1,17 @@
 using DemoMinimalAPI.Data;
 using DemoMinimalAPI.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using MiniValidation;
+using NetDevPack.Identity;
 using NetDevPack.Identity.Jwt;
+using NetDevPack.Identity.Model;
 
 var builder = WebApplication.CreateBuilder(args);
+
+#region Configure Services
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -23,7 +29,12 @@ builder.Services.AddIdentityConfiguration();
 
 builder.Services.AddJwtConfiguration(builder.Configuration, "AppJwtSettings");
 
+
 var app = builder.Build();
+
+#endregion
+
+#region Configure Pipeline
 
 // Start configuration request - down here
 // Configure the HTTP request pipeline.
@@ -36,6 +47,52 @@ if (app.Environment.IsDevelopment())
 app.UseAuthConfiguration();
 
 app.UseHttpsRedirection();
+
+app.Run();
+
+#endregion
+
+#region Actions
+
+// Always to leave the parameter "registerUser" for last
+app.MapPost("/registerUser", async (
+    SignInManager<IdentityUser> signInManager,
+    UserManager<IdentityUser> userManager,
+    IOptions<AppJwtSettings> appJwtSettings,
+    RegisterUser registerUser) =>
+    {
+        if (registerUser is null) return Results.BadRequest("User not informat");
+
+        if (!MiniValidator.TryValidate(registerUser, out var errors))
+            return Results.ValidationProblem(errors);
+
+        var user = new IdentityUser
+        {
+            UserName = registerUser.Email,
+            Email = registerUser.Email,
+            EmailConfirmed = true
+        };
+
+        var result = await userManager.CreateAsync(user, registerUser.Password);
+
+        if (!result.Succeeded) return Results.BadRequest(result.Errors);
+
+        var jwt = new JwtBuilder()
+                    .WithUserManager(userManager)
+                    .WithJwtSettings(appJwtSettings.Value)
+                    .WithEmail(user.Email)
+                    .WithJwtClaims()
+                    .WithUserClaims()
+                    .WithUserRoles()
+                    .BuildUserResponse();
+
+        return Results.Ok(jwt);
+    })
+    .ProducesValidationProblem()
+    .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API (success)
+    .Produces(StatusCodes.Status400BadRequest)        //Add especification the documentation to API (error)
+    .WithName("RegisterUser")
+    .WithTags("User"); ;
 
 // Definition first the rote -> mode Async -> parameters -> action
 // Mapping the Get Verb to fetch a list of providers 
@@ -130,5 +187,5 @@ app.MapDelete("/provider/{id}", async (
     .WithName("DeleteProvider")
     .WithTags("Provider");
 
+#endregion
 
-app.Run();

@@ -1,7 +1,7 @@
 using DemoMinimalAPI.Data;
 using DemoMinimalAPI.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using MiniValidation;
@@ -29,6 +29,12 @@ builder.Services.AddIdentityConfiguration();
 
 builder.Services.AddJwtConfiguration(builder.Configuration, "AppJwtSettings");
 
+// Add service of authorization to the container, include the claims.
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("DeleteProvider",
+        policy => policy.RequireClaim("DeleteProvider"));
+});
 
 var app = builder.Build();
 
@@ -54,7 +60,7 @@ app.UseHttpsRedirection();
 #region Actions
 
 // Always to leave the parameter "registerUser" for last
-app.MapPost("/registerUser", async (
+app.MapPost("/registerUser", [AllowAnonymous] async (
     SignInManager<IdentityUser> signInManager,
     UserManager<IdentityUser> userManager,
     IOptions<AppJwtSettings> appJwtSettings,
@@ -93,7 +99,7 @@ app.MapPost("/registerUser", async (
     .WithName("RegisterUser")
     .WithTags("User");
 
-app.MapPost("/login", async (
+app.MapPost("/login", [AllowAnonymous] async (
     SignInManager<IdentityUser> signInManager,
     UserManager<IdentityUser> userManager,
     IOptions<AppJwtSettings> appJwtSettings,
@@ -125,12 +131,12 @@ app.MapPost("/login", async (
     .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API (success)
     .Produces(StatusCodes.Status400BadRequest)        //Add especification the documentation to API (error)
     .WithName("LoginUser")
-    .WithTags("User"); ;
+    .WithTags("User");
 
 
 // Definition first the rote -> mode Async -> parameters -> action
 // Mapping the Get Verb to fetch a list of providers 
-app.MapGet("/provider", async (
+app.MapGet("/provider", [AllowAnonymous] async (
     MinimalContextDb context) => 
     await context.Providers.ToListAsync())
     .WithName("GetProvider")
@@ -152,7 +158,7 @@ app.MapGet("/provider/{id}", async (
 
 // Definition first the rote -> mode Async -> parameters -> action
 // Mapping the Post Verb to add a provider to DbContext
-app.MapPost("/provider", async (
+app.MapPost("/provider", [Authorize] async (
     MinimalContextDb context, 
     Provider provider) =>
 {
@@ -175,7 +181,7 @@ app.MapPost("/provider", async (
 
 // Definition first the rote -> mode Async -> parameters -> action
 //Map Verb Put
-app.MapPut("/provider/{id}", async(
+app.MapPut("/provider/{id}", [Authorize] async (
     Guid id,
     MinimalContextDb context,
     Provider provider) => 
@@ -202,7 +208,7 @@ app.MapPut("/provider/{id}", async(
 
 // Definition first the rote -> mode Async -> parameters -> action
 //Map Verb Delete
-app.MapDelete("/provider/{id}", async (
+app.MapDelete("/provider/{id}", [Authorize] async (
     Guid id,
     MinimalContextDb context) =>
 {
@@ -218,6 +224,7 @@ app.MapDelete("/provider/{id}", async (
 }).Produces(StatusCodes.Status400BadRequest)
     .Produces(StatusCodes.Status204NoContent)
     .Produces(StatusCodes.Status404NotFound)
+    .RequireAuthorization("DeleteProvider") // Information the type of claim for delete provider reference table "AspNetUserClaims"
     .WithName("DeleteProvider")
     .WithTags("Provider");
 

@@ -1,6 +1,7 @@
 using DemoMinimalAPI.Data;
 using DemoMinimalAPI.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -90,17 +91,23 @@ app.UseAuthConfiguration();
 
 app.UseHttpsRedirection();
 
+MapActions(app);
+
+app.Run();
 
 #endregion
 
 #region Actions
 
-// Always to leave the parameter "registerUser" for last
-app.MapPost("/registerUser", [AllowAnonymous] async (
-    SignInManager<IdentityUser> signInManager,
-    UserManager<IdentityUser> userManager,
-    IOptions<AppJwtSettings> appJwtSettings,
-    RegisterUser registerUser) =>
+void MapActions(WebApplication app)
+{
+
+    // Always to leave the parameter "registerUser" for last
+    app.MapPost("/registerUser", [AllowAnonymous] async (
+        SignInManager<IdentityUser> signInManager,
+        UserManager<IdentityUser> userManager,
+        IOptions<AppJwtSettings> appJwtSettings,
+        RegisterUser registerUser) =>
     {
         if (registerUser is null) return Results.BadRequest("User not informat");
 
@@ -129,141 +136,140 @@ app.MapPost("/registerUser", [AllowAnonymous] async (
 
         return Results.Ok(jwt);
     })
-    .ProducesValidationProblem()
-    .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API (success)
+        .ProducesValidationProblem()
+        .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API (success)
+        .Produces(StatusCodes.Status400BadRequest)        //Add especification the documentation to API (error)
+        .WithName("RegisterUser")
+        .WithTags("User");
+
+    app.MapPost("/login", [AllowAnonymous] async (
+        SignInManager<IdentityUser> signInManager,
+        UserManager<IdentityUser> userManager,
+        IOptions<AppJwtSettings> appJwtSettings,
+        LoginUser loginUser) =>
+    {
+        if (loginUser is null) return Results.BadRequest("User not informat");
+
+        if (!MiniValidator.TryValidate(loginUser, out var errors))
+            return Results.ValidationProblem(errors);
+
+        var result = await signInManager.PasswordSignInAsync(loginUser.Email, loginUser.Password, false, true);
+
+        if (result.IsLockedOut) return Results.BadRequest("User Blocked");
+
+        if (!result.Succeeded) return Results.BadRequest("User or Password unvalid");
+
+        var jwt = new JwtBuilder()
+                    .WithUserManager(userManager)
+                    .WithJwtSettings(appJwtSettings.Value)
+                    .WithEmail(loginUser.Email)
+                    .WithJwtClaims()
+                    .WithUserClaims()
+                    .WithUserRoles()
+                    .BuildUserResponse();
+
+        return Results.Ok(jwt);
+    })
+        .ProducesValidationProblem()
+        .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API (success)
+        .Produces(StatusCodes.Status400BadRequest)        //Add especification the documentation to API (error)
+        .WithName("LoginUser")
+        .WithTags("User");
+
+
+    // Definition first the rote -> mode Async -> parameters -> action
+    // Mapping the Get Verb to fetch a list of providers 
+    app.MapGet("/provider", [AllowAnonymous] async (
+        MinimalContextDb context) =>
+        await context.Providers.ToListAsync())
+        .WithName("GetProvider")
+        .WithTags("Provider");
+
+    // Definition first the rote -> mode Async -> parameters -> action
+    // Mapping the Get Verb to fetch by id a provider
+    app.MapGet("/provider/{id}", async (
+        MinimalContextDb context,
+        Guid id) =>
+        await context.Providers.FindAsync(id)
+            is Provider provider
+                ? Results.Ok(provider)
+                : Results.NotFound())
+        .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API (success)
+        .Produces(StatusCodes.Status404NotFound)     //Add especification the documentation to API (error)
+        .WithName("GetProviderById")
+        .WithTags("Provider");
+
+    // Definition first the rote -> mode Async -> parameters -> action
+    // Mapping the Post Verb to add a provider to DbContext
+    app.MapPost("/provider", [Authorize] async (
+        MinimalContextDb context,
+        Provider provider) =>
+    {
+        if (!MiniValidator.TryValidate(provider, out var errors))
+            return Results.ValidationProblem(errors);
+
+        context.Providers.Add(provider);
+        var result = await context.SaveChangesAsync();
+
+        return result > 0
+            //? Results.Created($"/provider/{provider.Id}", provider) another way to do the endpoint below
+            ? Results.CreatedAtRoute("GetProviderById", new { id = provider.Id }, provider) // Return object type Provider Created
+            : Results.BadRequest("There was a problem, to save the register");
+
+    }).ProducesValidationProblem()
+    .Produces<Provider>(StatusCodes.Status201Created) //Add especification the documentation to API (success)
     .Produces(StatusCodes.Status400BadRequest)        //Add especification the documentation to API (error)
-    .WithName("RegisterUser")
-    .WithTags("User");
-
-app.MapPost("/login", [AllowAnonymous] async (
-    SignInManager<IdentityUser> signInManager,
-    UserManager<IdentityUser> userManager,
-    IOptions<AppJwtSettings> appJwtSettings,
-    LoginUser loginUser) =>
-{
-    if (loginUser is null) return Results.BadRequest("User not informat");
-
-    if (!MiniValidator.TryValidate(loginUser, out var errors))
-        return Results.ValidationProblem(errors);
-
-    var result = await signInManager.PasswordSignInAsync(loginUser.Email, loginUser.Password, false, true);
-
-    if (result.IsLockedOut) return Results.BadRequest("User Blocked");
-
-    if (!result.Succeeded) return Results.BadRequest("User or Password unvalid");
-
-    var jwt = new JwtBuilder()
-                .WithUserManager(userManager)
-                .WithJwtSettings(appJwtSettings.Value)
-                .WithEmail(loginUser.Email)
-                .WithJwtClaims()
-                .WithUserClaims()
-                .WithUserRoles()
-                .BuildUserResponse();
-
-    return Results.Ok(jwt);
-})
-    .ProducesValidationProblem()
-    .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API (success)
-    .Produces(StatusCodes.Status400BadRequest)        //Add especification the documentation to API (error)
-    .WithName("LoginUser")
-    .WithTags("User");
-
-
-// Definition first the rote -> mode Async -> parameters -> action
-// Mapping the Get Verb to fetch a list of providers 
-app.MapGet("/provider", [AllowAnonymous] async (
-    MinimalContextDb context) => 
-    await context.Providers.ToListAsync())
-    .WithName("GetProvider")
+    .WithName("PostProvider")
     .WithTags("Provider");
 
-// Definition first the rote -> mode Async -> parameters -> action
-// Mapping the Get Verb to fetch by id a provider
-app.MapGet("/provider/{id}", async (
-    MinimalContextDb context, 
-    Guid id) =>
-    await context.Providers.FindAsync(id)
-        is Provider provider 
-            ? Results.Ok(provider)
-            : Results.NotFound())
-    .Produces<Provider>(StatusCodes.Status200OK) //Add especification the documentation to API (success)
-    .Produces(StatusCodes.Status404NotFound)     //Add especification the documentation to API (error)
-    .WithName("GetProviderById")
-    .WithTags("Provider");
+    // Definition first the rote -> mode Async -> parameters -> action
+    //Map Verb Put
+    app.MapPut("/provider/{id}", [Authorize] async (
+        Guid id,
+        MinimalContextDb context,
+        Provider provider) =>
+    {
+        var providerBase = await context.Providers.AsNoTracking<Provider>()
+                                                    .FirstOrDefaultAsync(p => p.Id == id);
 
-// Definition first the rote -> mode Async -> parameters -> action
-// Mapping the Post Verb to add a provider to DbContext
-app.MapPost("/provider", [Authorize] async (
-    MinimalContextDb context, 
-    Provider provider) =>
-{
-    if(!MiniValidator.TryValidate(provider, out var errors))
-        return Results.ValidationProblem(errors);
+        if (providerBase is null) return Results.NotFound();
 
-    context.Providers.Add(provider);
-    var result = await context.SaveChangesAsync();
+        if (!MiniValidator.TryValidate(provider, out var errors))
+            return Results.ValidationProblem(errors);
 
-    return result > 0
-        //? Results.Created($"/provider/{provider.Id}", provider) another way to do the endpoint below
-        ? Results.CreatedAtRoute("GetProviderById", new { id = provider.Id}, provider) // Return object type Provider Created
-        : Results.BadRequest("There was a problem, to save the register");
+        context.Providers.Update(provider);
+        var result = await context.SaveChangesAsync();
 
-}).ProducesValidationProblem()
-.Produces<Provider>(StatusCodes.Status201Created) //Add especification the documentation to API (success)
-.Produces(StatusCodes.Status400BadRequest)        //Add especification the documentation to API (error)
-.WithName("PostProvider")
-.WithTags("Provider");
+        return result > 0
+            ? Results.NoContent() //Return a code 204
+            : Results.BadRequest("There was a problem, to save the register");
+    }).ProducesValidationProblem()
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status400BadRequest)
+        .WithName("PutFornecedor")
+        .WithName("Provider");
 
-// Definition first the rote -> mode Async -> parameters -> action
-//Map Verb Put
-app.MapPut("/provider/{id}", [Authorize] async (
-    Guid id,
-    MinimalContextDb context,
-    Provider provider) => 
-{
-    var providerBase = await context.Providers.AsNoTracking<Provider>()
-                                                .FirstOrDefaultAsync(p => p.Id == id);
+    // Definition first the rote -> mode Async -> parameters -> action
+    //Map Verb Delete
+    app.MapDelete("/provider/{id}", [Authorize] async (
+        Guid id,
+        MinimalContextDb context) =>
+    {
+        var provider = await context.Providers.FindAsync(id);
+        if (provider is null) return Results.NotFound();
 
-    if(providerBase is null) return Results.NotFound();
+        context.Providers.Remove(provider);
+        var result = await context.SaveChangesAsync();
 
-    if(!MiniValidator.TryValidate(provider, out var errors))
-        return Results.ValidationProblem(errors);
+        return result > 0
+            ? Results.NoContent()
+            : Results.BadRequest("There was a problem, to save the register");
+    }).Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAuthorization("DeleteProvider") // Information the type of claim for delete provider reference table "AspNetUserClaims"
+        .WithName("DeleteProvider")
+        .WithTags("Provider");
 
-    context.Providers.Update(provider);
-    var result = await context.SaveChangesAsync();
-
-    return result > 0
-        ? Results.NoContent() //Return a code 204
-        : Results.BadRequest("There was a problem, to save the register");
-}).ProducesValidationProblem()
-    .Produces(StatusCodes.Status204NoContent)
-    .Produces(StatusCodes.Status400BadRequest)
-    .WithName("PutFornecedor")
-    .WithName("Provider");
-
-// Definition first the rote -> mode Async -> parameters -> action
-//Map Verb Delete
-app.MapDelete("/provider/{id}", [Authorize] async (
-    Guid id,
-    MinimalContextDb context) =>
-{
-    var provider = await context.Providers.FindAsync(id);
-    if (provider is null) return Results.NotFound();
-
-    context.Providers.Remove(provider);
-    var result = await context.SaveChangesAsync();
-
-    return result > 0
-        ? Results.NoContent()
-        : Results.BadRequest("There was a problem, to save the register");
-}).Produces(StatusCodes.Status400BadRequest)
-    .Produces(StatusCodes.Status204NoContent)
-    .Produces(StatusCodes.Status404NotFound)
-    .RequireAuthorization("DeleteProvider") // Information the type of claim for delete provider reference table "AspNetUserClaims"
-    .WithName("DeleteProvider")
-    .WithTags("Provider");
-
-#endregion
-
-app.Run();
+    #endregion
+}
